@@ -9,6 +9,7 @@
         // silently break the bridge for artifacts that worked before.
         const realParent = window.parent;
         const cryptoObj = window.crypto;
+        const RealURL = URL;
         // html-to-image is only used by takeScreenshot: fetched on first use, not as a
         // parser-blocking tag. Native fetch, captured before the proxy override below.
         const realFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
@@ -332,30 +333,45 @@
           }
         });
 
+        // An SVG <a> exposes href as an SVGAnimatedString; its baseVal is the attribute
+        // as written, so resolve it against the base URL as the browser does for an HTML <a>.
+        const resolvedHref = (linkEl) => {
+          if (typeof linkEl.href === "string") return linkEl.href;
+          const written = linkEl.href?.baseVal;
+          // A same-document SVG link, such as one that begins an animation, stays with the browser.
+          if (!written || written.trim().startsWith("#")) return "";
+          try {
+            return new RealURL(written, linkEl.baseURI).href;
+          } catch (error) {
+            return written;
+          }
+        };
+
         window.addEventListener('click', (event) => {
-          const isEl = event.target instanceof HTMLElement;
-          if (!isEl) return;
+          // Not instanceof Element: an artifact's own top-level class Element shadows the global.
+          if (typeof event.target?.closest !== "function") return;
     
-          // find ancestor links
           const linkEl = event.target.closest("a");
-          if (!linkEl || !linkEl.href) return;
+          const href = linkEl && resolvedHref(linkEl);
+          if (!href) return;
+          const filename = linkEl.getAttribute("download") ?? "";
     
           event.preventDefault();
           event.stopImmediatePropagation();
     
-          if (linkEl.href.startsWith("blob-request:")) {
-            const blob = getBlobFromURL(linkEl.href);
+          if (href.startsWith("blob-request:")) {
+            const blob = getBlobFromURL(href);
             if (!blob) return;
             void blob.arrayBuffer().then((data) => {
               realParent.postMessage({
                 type: "downloadFile",
-                filename: linkEl.download,
+                filename,
                 data,
                 mimeType: blob.type || "application/octet-stream",
               });
             });
-          } else if (linkEl.href.startsWith("data:")) {
-            const [header, base64Data] = linkEl.href.split(",");
+          } else if (href.startsWith("data:")) {
+            const [header, base64Data] = href.split(",");
             const mimeMatch = header.match(/data:([^;]+)/);
             const mimeType = mimeMatch ? mimeMatch[1] : "application/octet-stream";
             const binaryString = atob(base64Data);
@@ -364,14 +380,14 @@
             ).buffer;
             realParent.postMessage({
               type: "downloadFile",
-              filename: linkEl.download,
+              filename,
               data,
               mimeType,
             });
           } else {
             let linkUrl;
             try {
-              linkUrl = new URL(linkEl.href);
+              linkUrl = new URL(href);
             } catch (error) {
               return;
             }
@@ -380,7 +396,7 @@
       
             realParent.postMessage({
               type: 'openExternal',
-              href: linkEl.href,
+              href,
             }, '*');
           }
       });
@@ -398,7 +414,7 @@
         });
       })();
     </script>
-  
+  <style id="claude-scrollbar">@layer claude-scrollbar{*{scrollbar-width:thin}html{scrollbar-color:rgb(128 128 128 / 50%) transparent}}</style>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aetherfootball — Akun eFootball Premium</title>
@@ -1149,13 +1165,6 @@
       <button class="btn btn-ghost btn-sm hero-wiggle" onclick="openHowToBuy()">Cara membeli</button>
       <button class="btn btn-ghost btn-sm hero-wiggle" onclick="goToTestimoniPage()">Testimoni</button>
     </div>
-    <div class="trust-line">
-      <span id="trustText1">Detail akun transparan</span>
-      <span class="dot"></span>
-      <span id="trustText2">Respon cepat</span>
-      <span class="dot"></span>
-      <span id="trustText3">Transaksi langsung via WhatsApp</span>
-    </div>
   </div>
 </header>
 
@@ -1163,7 +1172,6 @@
   <div class="wrap">
     <div class="section-head">
       <h2>Katalog akun</h2>
-      <p>Semua akun tersedia dicek dan siap pakai. Klik produk untuk cek spesifikasi lengkap.</p>
     </div>
     <div class="cat-filters" id="catFilters">
       <button class="cat-filter-btn active" data-cat="all" onclick="setCategoryFilter('all')">Semua</button>
@@ -2231,7 +2239,7 @@
       </div>
     </div>
 
-    <div class="admin-section-inner" id="tab-products" style="display:none;">
+    <div class="admin-section-inner" id="tab-products" style="display: none;">
       <div class="admin-panel-title" style="display:flex;justify-content:space-between;align-items:center;">
         <span>Semua produk</span>
         <button class="btn btn-gold btn-sm" onclick="openProductForm()">+ Tambah produk</button>
@@ -2551,7 +2559,7 @@
   </div>
     </div>
 
-    <div class="admin-section-inner" id="tab-testimonials" style="display:none;">
+    <div class="admin-section-inner" id="tab-testimonials" style="display: none;">
       <div class="admin-panel-title" style="display:flex;justify-content:space-between;align-items:center;">
         <span>Semua testimoni</span>
         <button class="btn btn-gold btn-sm" onclick="openTestiForm()">+ Tambah testimoni</button>
@@ -2836,8 +2844,8 @@
   </div>
   <div class="fake-notif-body">
     <span class="fake-notif-badge">PESAN BARU</span>
-    <div class="fake-notif-title" id="fakeNotifTitle"><strong>Ridwan</strong> baru saja membeli Squad eFootball</div>
-    <div class="fake-notif-time" id="fakeNotifTime">1 jam yang lalu</div>
+    <div class="fake-notif-title" id="fakeNotifTitle"><strong>Made</strong> baru saja melakukan top up koin</div>
+    <div class="fake-notif-time" id="fakeNotifTime">2 jam yang lalu</div>
   </div>
   <button class="fake-notif-close" onclick="hideFakeNotif()">×</button>
 </div>
@@ -2925,7 +2933,7 @@ function defaultData(){
     settings:{
       siteName:'AetherFootball',
       logoImg:'',
-      heroTitle:'Cari akun [[eFootball]] yang bikin ngiler?',
+      heroTitle:'Lagi Nyari Akun [[eFootball]] Mewah harga Termurah? Semua ada di Aetherfootball',
       heroSub:'Setiap akun dicek manual sebelum dijual — skuad, level, dan data lengkap sesuai deskripsi. Transaksi langsung dengan penjual, bukan robot.',
       testiPageTitle:'Kata pembeli',
       testiPageSub:'Bukti chat asli dari pembeli yang sudah deal.',
@@ -3160,9 +3168,6 @@ function renderSettings(){
   document.getElementById('heroSub').textContent = s.heroSub;
   document.getElementById('testiPageTitle').textContent = s.testiPageTitle || 'Kata pembeli';
   document.getElementById('testiPageSub').textContent = s.testiPageSub || 'Bukti chat asli dari pembeli yang sudah deal.';
-  document.getElementById('trustText1').textContent = s.trust1;
-  document.getElementById('trustText2').textContent = s.trust2;
-  document.getElementById('trustText3').textContent = s.trust3;
   document.getElementById('ctaSub').textContent = s.ctaSub;
 
   document.getElementById('footerBrand').textContent = s.footerBrand;
